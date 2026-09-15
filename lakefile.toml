@@ -18,7 +18,7 @@ rev = "fb6681985b9ebba0a74b2f57466ce2acba3f498e"
 [[require]]
 name = "MonomialOrderedPolynomial"
 git = "https://github.com/rshlyakh/MonomialOrderedPolynomial"
-rev = "f287af609e2d35e235217b8c292ed6e956aa813b"
+rev = "773552dd2a0af98eef47166c982db59cabcabfe9"
 
 [[lean_lib]]
 name = "GroebnerTac"
