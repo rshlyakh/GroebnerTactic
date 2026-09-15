@@ -5,7 +5,6 @@ import Groebner.Groebner
 import Groebner.ToMathlib.List
 import GroebnerTac.GbOption
 
-import Lean.Meta.Tactic.Grind.Arith.CommRing.Poly
 import Lean.Meta.Tactic.TryThis
 
 import Mathlib.Tactic
@@ -346,20 +345,8 @@ def testRemainderSympy : IO String :=
 def testBackendTask: MetaM String :=
   runBackendTask (.remainder "X_0*X_1" "[X_0^2-X_1, 3*X_1]")
 
-#eval testRemainderSageLocal
-
-#eval testRemainderSympy
-
-#eval testBackendTask
-
-set_option gb_tactic.backend 0
-#eval testBackendTask
-
--- set_option gb_tactic.backend 1
--- #eval testBackendTask
-
-set_option gb_tactic.backend 2
-#eval testBackendTask
+-- These helpers require external Sage/Python installations and are intentionally
+-- not evaluated while the package is compiled.
 
 
 /-
@@ -1083,11 +1070,11 @@ elab "submodule_span" "[" coeffs:term,* "]" : tactic => do
   have sum :=
     if coeffs.size != 0 then
       (coeffs.zip bases)[0:coeffs.size-1].foldr
-      (fun x y ↦ q($(smul x.1 x.2) + «$y»))
+      (fun x y ↦ q($(smul x.1 x.2) + $y))
       (smul coeffs.back! bases.back!)
     else q(0)
 
-  let sumMemSpan : Q($sum ∈ Submodule.span $R $s) ←
+  let sumMemSpan : Q($sum ∈ Submodule.span $R $basesSet) ←
     match coeffs.size with
     | 0 => pure <| show Q($sum ∈ Submodule.span $R $basesSet) from
       show Q(0 ∈ Submodule.span $R $basesSet) from
