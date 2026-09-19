@@ -122,7 +122,8 @@ def convert_quotient_to_json(quotients, vars_list):
                 exponent_pairs = []
                 for i, power in enumerate(exp_tuple):
                     if power != 0:
-                        exponent_pairs.append([i, int(power)])
+                        var_index = int(vars_list[i].rsplit("_", 1)[1])
+                        exponent_pairs.append([var_index, int(power)])
 
                 terms_list.append({
                     "c": [coeff_num, coeff_den],

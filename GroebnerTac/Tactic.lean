@@ -15,6 +15,11 @@ open Lean Elab Tactic Meta Term
 open Meta Ring Qq PrettyPrinter AtomM
 open MvPolynomial MonomialOrder
 
+-- Lean 4.33 changed metavariable-type unification. Keep the Lean 4.29 behavior
+-- throughout certificate construction, without changing the caller's options.
+private def withLegacyTransparency {α : Type} (action : TacticM α) : TacticM α :=
+  withOptions (fun opts => opts.setBool `backward.isDefEq.respectTransparency.types false) action
+
 namespace Poly
 open Lean
 
@@ -241,7 +246,7 @@ def runSympy (task : GbTask) : IO String := do
 
   -- runsage
   let child ← IO.Process.spawn {
-    cmd := "python3"
+    cmd := "python"
     args := #[path.toString] ++ scriptArgs
     stdout := .piped,
     stderr := .piped
@@ -633,7 +638,7 @@ def verifyRemainderLogic (witness : Term) (isZeroTarget : Bool) : TacticM Unit :
         all_goals
           simp only [List.get]
           rw [← tsub_eq_zero_iff_le, MvPolynomial.SortedRepr.lex_degree_eq]
-          convert_to _ → ¬ SortedFinsupp.toFinsupp _ - SortedFinsupp.toFinsupp x = 0
+          change _ → ¬ SortedFinsupp.toFinsupp _ - SortedFinsupp.toFinsupp x = 0
           rw [← SortedFinsupp.toFinsupp_tsub, SortedFinsupp.toFinsupp_eq_zero_iff]
           decide +kernel +revert
     ))
@@ -641,7 +646,7 @@ def verifyRemainderLogic (witness : Term) (isZeroTarget : Bool) : TacticM Unit :
 syntax (name := checkRemainder) "remainder" "[" term,* "]" : tactic
 
 @[tactic checkRemainder]
-def evalCheckRemainder : Tactic := fun stx => do
+def evalCheckRemainder : Tactic := fun stx => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -670,7 +675,7 @@ open Lean.Meta.Tactic.TryThis
 syntax (name := remainderTry) "remainder?" : tactic
 
 @[tactic remainderTry]
-def evalRemainderTry : Tactic := fun stx => do
+def evalRemainderTry : Tactic := fun stx => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -720,7 +725,7 @@ syntax (name := remainderNormal) "remainder" (ppSpace "[" term,* "]")? : tactic
 -- syntax (name := remainderTry) "remainder?" (ppSpace "[" term,* "]")? : tactic
 
 @[tactic remainderNormal, tactic remainderTry]
-def evalRemainderTactic : Tactic := fun stx => do
+def evalRemainderTactic : Tactic := fun stx => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -782,7 +787,7 @@ def evalRemainderTactic : Tactic := fun stx => do
 
 
 
-elab "remainder_zero" : tactic => do
+elab "remainder_zero" : tactic => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -847,7 +852,7 @@ elab "remainder_zero" : tactic => do
       dbg_trace "not a lex.IsRemainder"
 
 
-elab "remainder_neq_zero" : tactic => do
+elab "remainder_neq_zero" : tactic => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -921,14 +926,14 @@ elab "remainder_neq_zero" : tactic => do
           all_goals
             simp only [List.get]
             rw [← tsub_eq_zero_iff_le, MvPolynomial.SortedRepr.lex_degree_eq]
-            convert_to _ → ¬ SortedFinsupp.toFinsupp _ - SortedFinsupp.toFinsupp x = 0
+            change _ → ¬ SortedFinsupp.toFinsupp _ - SortedFinsupp.toFinsupp x = 0
             rw [← SortedFinsupp.toFinsupp_tsub, SortedFinsupp.toFinsupp_eq_zero_iff]
             decide +kernel +revert
       ))
     | _ =>
       dbg_trace "not a lex.IsRemainder"
 
-elab "basis" : tactic  => do
+elab "basis" : tactic  => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   -- logInfo m!"[DEBUG `basis` Goal] : {goal}"
   let t ← goal.getType
@@ -1040,7 +1045,7 @@ partial def getObjectsOfSet {u : Level} {M : Q(Type u)} (s : Q(Set $M)) (old : A
     | ~q({}) => pure <| .some old
     | _ => pure <| .none
 
-elab "submodule_span" "[" coeffs:term,* "]" : tactic => do
+elab "submodule_span" "[" coeffs:term,* "]" : tactic => withLegacyTransparency do
   let goal ← getMainTarget
   let some goal ← Qq.checkTypeQ goal q(Prop) | throwError "goal isn't a prop"
   let ⟨_, R, _, M, smul, member, basesSet, _, _, _⟩ ←
@@ -1101,7 +1106,7 @@ elab "submodule_span" "[" coeffs:term,* "]" : tactic => do
 
   replaceMainGoal [mvarIdEq.mvarId!]
 
-elab "idealeq" : tactic => do
+elab "idealeq" : tactic => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let goalType ← goal.getType
   let goalType ← checkTypeQ goalType q(Prop)
@@ -1162,7 +1167,7 @@ elab "idealeq" : tactic => do
       logError "Error: Goal is not an equality (Eq.eq) structure."
 
 
-elab "basis'" : tactic  => do
+elab "basis'" : tactic  => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← instantiateMVars (← goal.getType)
   let t ← checkTypeQ t q(Prop)
@@ -1190,7 +1195,7 @@ elab "basis'" : tactic  => do
 
 
 
-elab "base" : tactic  => do
+elab "base" : tactic  => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← instantiateMVars (← goal.getType)
   let t ← checkTypeQ t q(Prop)
@@ -1218,7 +1223,7 @@ elab "base" : tactic  => do
       }))
 
 elab "add_gb_hyp" name:(ident)? G:term : tactic =>
-  withMainContext do
+  withLegacyTransparency <| withMainContext do
 
     let G_expr ← Term.withSynthesize <| Term.elabTerm G none
     let G_expr ← instantiateMVars G_expr
@@ -1279,7 +1284,7 @@ elab "add_gb_hyp" name:(ident)? G:term : tactic =>
 
 syntax (name := groebnerMembership) "ideal_membership" : tactic
 @[tactic groebnerMembership]
-def evalGroebnerMembership : Tactic := fun _stx => do
+def evalGroebnerMembership : Tactic := fun _stx => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -1596,7 +1601,7 @@ theorem Rabinovich_method'
 
 syntax (name := radicalMembership) "radical_membership" : tactic
 @[tactic radicalMembership]
-def evalradicalMembership : Tactic := fun _stx => do
+def evalradicalMembership : Tactic := fun _stx => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
@@ -1712,7 +1717,7 @@ def evalradicalMembership : Tactic := fun _stx => do
 
 syntax (name := GBSolve) "gb_solve" : tactic
 @[tactic GBSolve]
-def evalGBSolve : Tactic := fun stx => do
+def evalGBSolve : Tactic := fun stx => withLegacyTransparency do
   let goal ← Lean.Elab.Tactic.getMainGoal
   let t ← goal.getType
   let t ← checkTypeQ t q(Prop)
